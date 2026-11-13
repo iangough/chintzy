@@ -155,7 +155,7 @@ const $=id=>document.getElementById(id);
 const KEY="chintzy-v1";
 const SYNC_URL="https://myev.cloudgough.synology.me:8443";
 const APP_URL="https://iangough.github.io/chintzy/";
-const BUILD="2026-11-14a";
+const BUILD="2026-11-14b";
 const FUELS=[["unleaded","Unleaded (E10)"],["super","Super unleaded (E5)"],["diesel","Diesel"],["premium_diesel","Premium diesel"],["hvo","HVO diesel"],["b10","B10 diesel"]];
 const fname=id=>(FUELS.find(f=>f[0]===id)||[0,id])[1];
 function applyTheme(v){const r=document.documentElement;if(v==="dark"||v==="light")r.setAttribute("data-theme",v);else r.removeAttribute("data-theme")}
@@ -164,8 +164,8 @@ applyTheme(tv);$("theme").value=tv;
 $("theme").onchange=()=>{tv=$("theme").value;try{localStorage.setItem("chintzy-theme",tv)}catch(e){}applyTheme(tv);toast("✓ Theme saved")};
 /* small confirmation message at the bottom of the screen, so people always see that something happened */
 let toastT=0;function toast(msg,bad){let t=document.getElementById("toast");if(!t){t=document.createElement("div");t.id="toast";t.setAttribute("role","status");t.setAttribute("aria-live","polite");
- t.style.cssText="position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:98;max-width:92vw;padding:12px 18px;border-radius:999px;font-size:16px;font-weight:600;box-shadow:0 6px 22px rgba(0,0,0,.4);transition:opacity .2s;opacity:0;pointer-events:none;text-align:center";document.body.appendChild(t)}
- t.style.background=bad?"#b3261e":"#1f7a4d";t.style.color="#fff";t.textContent=msg;t.style.opacity="1";clearTimeout(toastT);toastT=setTimeout(()=>{t.style.opacity="0"},2600)}
+ t.style.cssText="position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 12px);transform:translateX(-50%);z-index:9999;max-width:92vw;padding:14px 20px;border-radius:18px;font-size:18px;font-weight:600;box-shadow:0 6px 22px rgba(0,0,0,.4);transition:opacity .2s;opacity:0;pointer-events:none;text-align:center";document.body.appendChild(t)}
+ t.style.background=bad?"#b3261e":"#1f7a4d";t.style.color="#fff";t.textContent=msg;t.style.opacity="1";clearTimeout(toastT);toastT=setTimeout(()=>{t.style.opacity="0"},4200)}
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 function tfetch(u,ms,o){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms||4000);return fetch(u,Object.assign({signal:c.signal,cache:"no-store"},o||{})).finally(()=>clearTimeout(t))}
 const hav=(a,b,c,d)=>{const R=3958.8,t=x=>x*Math.PI/180,dl=t(c-a),dn=t(d-b),h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
@@ -265,7 +265,7 @@ async function find(manual){
   const d=await r.json();
   if(!isHere)S.pc=pc;S.last=isHere?{pc,t:Date.now(),d}:{pc,t:Date.now(),d,g};save();render(d,g,0);
   $("findmsg").textContent=manual?(isHere?"Using your current location. ":"")+"Found "+d.found+" station"+(d.found===1?"":"s")+" with a price. Showing the cheapest "+d.stations.length+".":"";
-  if(manual)toast("✓ Prices updated");
+  if(manual)toast(isHere?"✓ Prices updated near you":"✓ Saved "+pc+" and updated prices");try{document.activeElement.blur()}catch(e){}
  }catch(e){
   const L=S.last;
   if(L&&L.pc===pc&&L.d&&L.d.fuel===S.fuel&&L.d.mi===S.mi&&(L.g||here)){render(L.d,L.g||here,L.t);$("findmsg").textContent="Could not get live prices ("+(e&&e.message&&!(e instanceof TypeError)?e.message:"no connection")+"). Showing your saved copy."}
@@ -337,7 +337,7 @@ $("alerttest").onclick=async()=>{
   const r=await tfetch(SYNC_URL+"/v1/chintzy/test",15000,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sub:sub.toJSON()})});
   const j=await r.json().catch(()=>({}));
   if(r.ok&&j.ok){m.textContent="Sent. It should arrive in a few seconds.";toast("✓ Test alert sent")}
-  else if(r.status===429){m.textContent="Please wait a few seconds between tests."}
+  else if(r.status===429){m.textContent="Please wait a few seconds between tests.";toast("Please wait a few seconds",true)}
   else{m.textContent="The test was not accepted (code "+(j.code||r.status)+"). Try turning alerts off and on again.";toast("Test failed",true)}
  }catch(e){m.textContent="Test failed: "+(e&&e.message?e.message:"no connection");toast("Test failed",true)}
 };
