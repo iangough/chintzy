@@ -102,9 +102,9 @@ ul.rules{margin:6px 0 0;padding-left:20px;color:var(--mute);font-size:13px}
      <div><label for="fuel">Fuel</label><select id="fuel"></select></div>
      <div><label for="mi">Within</label><select id="mi"><option value="2">2 miles</option><option value="5">5 miles</option><option value="10">10 miles</option><option value="15">15 miles</option><option value="25">25 miles</option></select></div>
     </div>
-    <div class="row" style="margin-top:12px"><button class="btn" id="find" type="button">Show the cheapest 10</button></div>
+    <div class="row" style="margin-top:12px"><button class="btn" id="find" type="button">Show the cheapest 10</button><button class="btn alt" id="here" type="button">Use my location</button></div>
     <p class="msg" id="findmsg" role="status" aria-live="polite"></p>
-    <p class="note">Your postcode, fuel and distance are saved on this phone. Leaded (4-star) petrol is not in the government price data, so it cannot be listed.</p>
+    <p class="note">Away from home? Press <b>Use my location</b> and your phone will ask once to share where you are. Your position is only used for this search: it is not saved, and it is rounded to about 1 km before it is sent. Your postcode, fuel and distance are saved on this phone. Leaded (4-star) petrol is not in the government price data, so it cannot be listed.</p>
    </div>
 
    <div class="card" id="alertcard">
@@ -155,7 +155,7 @@ const $=id=>document.getElementById(id);
 const KEY="chintzy-v1";
 const SYNC_URL="https://myev.cloudgough.synology.me:8443";
 const APP_URL="https://iangough.github.io/chintzy/";
-const BUILD="2026-11-13a";
+const BUILD="2026-11-13b";
 const FUELS=[["unleaded","Unleaded (E10)"],["super","Super unleaded (E5)"],["diesel","Diesel"],["premium_diesel","Premium diesel"],["hvo","HVO diesel"],["b10","B10 diesel"]];
 const fname=id=>(FUELS.find(f=>f[0]===id)||[0,id])[1];
 function applyTheme(v){const r=document.documentElement;if(v==="dark"||v==="light")r.setAttribute("data-theme",v);else r.removeAttribute("data-theme")}
@@ -171,7 +171,7 @@ function tfetch(u,ms,o){const c=new AbortController();const t=setTimeout(()=>c.a
 const hav=(a,b,c,d)=>{const R=3958.8,t=x=>x*Math.PI/180,dl=t(c-a),dn=t(d-b),h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
 
 /* ---------- saved settings (this device only) ---------- */
-let S={pc:"",fuel:"unleaded",mi:5,mind:1,alerts:false,welcomed:false,nv:0,gc:{},last:null};
+let S={pc:"",fuel:"unleaded",mi:5,mind:1,alerts:false,welcomed:false,nv:0,gc:{},last:null,mode:"pc"};
 try{const j=JSON.parse(localStorage.getItem(KEY)||"null");if(j&&typeof j==="object")S=Object.assign(S,j)}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 const normPc=p=>{p=String(p||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return p.length>=5?p.slice(0,-3)+" "+p.slice(-3):p};
@@ -189,7 +189,7 @@ function showPrefs(){$("pc").value=S.pc;$("fuel").value=S.fuel;$("mi").value=Str
 
 /* ---------- connection bar ---------- */
 function net(){const on=navigator.onLine;$("netdot").className="dot"+(on?"":" bad");$("nettext").textContent=on?"Online":"Offline: showing the saved copy"}
-window.addEventListener("online",()=>{net();if(S.pc)find(false)});window.addEventListener("offline",net);net();
+window.addEventListener("online",()=>{net();if(hasTarget())find(false)});window.addEventListener("offline",net);net();
 $("netinfo").onclick=()=>{const d=$("netdetail");d.hidden=!d.hidden};
 
 /* ---------- server notice from the MyEV admin console ---------- */
@@ -218,7 +218,7 @@ let cur=null,busy=false;
 function render(d,g,saved){
  cur={d,g,saved,got:saved||Date.now()};
  const name=fname(d.fuel);
- $("reshead").textContent="Cheapest "+name+" within "+d.mi+" miles of "+esc(S.pc||"you");
+ $("reshead").textContent="Cheapest "+name+" within "+d.mi+" miles of "+(S.mode==="here"?"your location":(S.pc||"you"));
  if(!d.stations.length){$("res").innerHTML="<p class='note'>No stations with a "+esc(name)+" price within "+d.mi+" miles. Try a bigger distance.</p>";$("savenote").textContent="";tickAge();return}
  $("res").innerHTML=d.stations.map((x,i)=>{
   const mi=hav(g.lat,g.lon,x.lat,x.lon);
@@ -238,33 +238,48 @@ function tickAge(){
 }
 setInterval(tickAge,20000);
 
+/* current position from the phone (asks permission the first time). Not saved anywhere except in memory for this visit. */
+let here=null;
+function locate(maxAge){
+ return new Promise((ok,no)=>{
+  if(!navigator.geolocation){no(new Error("This browser cannot share your location. Type a postcode instead."));return}
+  navigator.geolocation.getCurrentPosition(p=>{here={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy};ok(here)},
+   e=>{if(here&&maxAge){ok(here);return}
+    no(new Error(e&&e.code===1?"Location is blocked for Chintzy. Allow it in your browser's site settings, or type a postcode.":e&&e.code===3?"Your phone took too long to find your location. Try again, or type a postcode.":"Could not find your location. Try again, or type a postcode."))},
+   {enableHighAccuracy:false,timeout:15000,maximumAge:maxAge?120000:30000});
+ });
+}
+const hasTarget=()=>S.mode==="here"||!!S.pc;
 async function find(manual){
  if(busy)return;
- const pc=normPc($("pc").value||S.pc);
- if(!validPc(pc)){if(manual){$("findmsg").textContent="That postcode does not look right. Check it and try again.";toast("Check the postcode",true)}return}
- busy=true;if(manual)$("findmsg").textContent="Looking up prices near "+pc+"...";
+ const isHere=S.mode==="here";
+ const pc=isHere?"here":normPc($("pc").value||S.pc);
+ if(!isHere&&!validPc(pc)){if(manual){$("findmsg").textContent="That postcode does not look right. Check it and try again.";toast("Check the postcode",true)}return}
+ busy=true;if(manual)$("findmsg").textContent=isHere?"Finding your location...":"Looking up prices near "+pc+"...";
  try{
-  const g=await geocode(pc);
+  const g=isHere?await locate(!manual):await geocode(pc);
+  if(isHere&&manual)$("findmsg").textContent="Looking up prices near you...";
   const r=await tfetch(SYNC_URL+"/v1/chintzy/near?fuel="+S.fuel+"&mi="+S.mi+"&lat="+g.lat.toFixed(2)+"&lon="+g.lon.toFixed(2),20000);
   if(r.status===503)throw new Error("The prices are still loading on the server. Try again in a minute.");
   if(!r.ok)throw new Error("service "+r.status);
   const d=await r.json();
-  S.pc=pc;S.last={pc,t:Date.now(),d,g};save();render(d,g,0);
-  $("findmsg").textContent=manual?"Found "+d.found+" station"+(d.found===1?"":"s")+" with a price. Showing the cheapest "+d.stations.length+".":"";
+  if(!isHere)S.pc=pc;S.last=isHere?{pc,t:Date.now(),d}:{pc,t:Date.now(),d,g};save();render(d,g,0);
+  $("findmsg").textContent=manual?(isHere?"Using your current location. ":"")+"Found "+d.found+" station"+(d.found===1?"":"s")+" with a price. Showing the cheapest "+d.stations.length+".":"";
   if(manual)toast("✓ Prices updated");
  }catch(e){
   const L=S.last;
-  if(L&&L.pc===pc&&L.d&&L.d.fuel===S.fuel&&L.d.mi===S.mi){render(L.d,L.g,L.t);$("findmsg").textContent="Could not get live prices ("+(e&&e.message&&!(e instanceof TypeError)?e.message:"no connection")+"). Showing your saved copy."}
-  else $("findmsg").textContent=(e&&e.message&&!(e instanceof TypeError)?e.message:"No connection.")+" Try again in a minute.";
+  if(L&&L.pc===pc&&L.d&&L.d.fuel===S.fuel&&L.d.mi===S.mi&&(L.g||here)){render(L.d,L.g||here,L.t);$("findmsg").textContent="Could not get live prices ("+(e&&e.message&&!(e instanceof TypeError)?e.message:"no connection")+"). Showing your saved copy."}
+  else $("findmsg").textContent=(e&&e.message&&!(e instanceof TypeError)?e.message:"No connection.")+(isHere&&e&&e.message&&/location|postcode/i.test(e.message)?"":" Try again in a minute.");
   if(manual)toast("Could not get prices",true);
  }finally{busy=false}
 }
-$("find").onclick=()=>{const pc=normPc($("pc").value);if(validPc(pc)){S.pc=pc;save()}find(true)};
+$("find").onclick=()=>{const pc=normPc($("pc").value);if(validPc(pc)){S.pc=pc;S.mode="pc";save()}else if(S.mode==="here"&&!pc){S.mode="pc"}find(true)};
+$("here").onclick=()=>{S.mode="here";save();find(true)};
 $("pc").addEventListener("keydown",e=>{if(e.key==="Enter")$("find").click()});
 $("fuel").onchange=()=>{S.fuel=$("fuel").value;save();toast("✓ Saved: "+fname(S.fuel));syncAlerts(true);find(false)};
 $("mi").onchange=()=>{S.mi=+$("mi").value;save();toast("✓ Saved: "+S.mi+" miles");syncAlerts(true);find(false)};
-setInterval(()=>{if(!document.hidden&&S.pc&&cur&&Date.now()-cur.got>(cfg.interval||300)*1000)find(false)},30000);
-document.addEventListener("visibilitychange",()=>{if(!document.hidden&&S.pc&&(!cur||Date.now()-cur.got>60000))find(false)});
+setInterval(()=>{if(!document.hidden&&hasTarget()&&cur&&Date.now()-cur.got>(cfg.interval||300)*1000)find(false)},30000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden&&hasTarget()&&(!cur||Date.now()-cur.got>60000))find(false)});
 
 /* ---------- welcome ---------- */
 function showWelcome(){$("welcome").hidden=!!S.welcomed;if(!S.welcomed)$("w_pc").value=S.pc||""}
@@ -288,7 +303,7 @@ function alertUI(){
  btn.disabled=false;
  if(Notification.permission==="denied"){btn.disabled=true;tst.hidden=true;info.textContent="Notifications are blocked for Chintzy on this phone. To allow them: open the phone's settings, find Chintzy (or your browser), and switch Notifications on. Then come back here.";return}
  if(cfg.alertsPaused)info.textContent="Alerts are paused by the owner for now. Your settings are kept.";
- else info.textContent=S.alerts?"Alerts are on for "+esc(S.pc)+": "+fname(S.fuel)+", within "+S.mi+" miles.":"Get a notification when a station near you gets cheaper.";
+ else info.textContent=S.alerts?"Alerts are on for "+esc(S.pc)+": "+fname(S.fuel)+", within "+S.mi+" miles.":"Get a notification when a station near your saved postcode gets cheaper.";
  btn.textContent=S.alerts?"Turn off alerts":"Turn on alerts";tst.hidden=!S.alerts;
 }
 async function postSub(sub){
@@ -364,8 +379,8 @@ function regSW(){if("serviceWorker" in navigator&&/(github\.io|localhost|127\.0\
 
 /* ---------- start ---------- */
 fillFuels();showPrefs();showWelcome();alertUI();regSW();
-if(S.last&&S.last.d&&S.last.pc===S.pc&&S.last.d.fuel===S.fuel){render(S.last.d,S.last.g,S.last.t)}
-loadCfg().then(()=>{showPrefs();alertUI();if(S.pc)find(false);syncAlerts(false)});
+if(S.last&&S.last.d&&S.last.g&&S.last.pc===(S.mode==="here"?"here":S.pc)&&S.last.d.fuel===S.fuel&&S.mode!=="here"){render(S.last.d,S.last.g,S.last.t)}
+loadCfg().then(()=>{showPrefs();alertUI();if(S.mode==="here"&&!S.pc)S.mode="pc";if(S.mode==="here"){const ask=()=>{$("findmsg").textContent="Press Use my location to look near you again."};try{navigator.permissions.query({name:"geolocation"}).then(r=>{if(r.state==="granted")find(false);else ask()},ask)}catch(e){ask()}}else if(S.pc)find(false);syncAlerts(false)});
 })();
 </script>
 
