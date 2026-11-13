@@ -155,7 +155,7 @@ const $=id=>document.getElementById(id);
 const KEY="chintzy-v1";
 const SYNC_URL="https://myev.cloudgough.synology.me:8443";
 const APP_URL="https://iangough.github.io/chintzy/";
-const BUILD="2026-11-13b";
+const BUILD="2026-11-14a";
 const FUELS=[["unleaded","Unleaded (E10)"],["super","Super unleaded (E5)"],["diesel","Diesel"],["premium_diesel","Premium diesel"],["hvo","HVO diesel"],["b10","B10 diesel"]];
 const fname=id=>(FUELS.find(f=>f[0]===id)||[0,id])[1];
 function applyTheme(v){const r=document.documentElement;if(v==="dark"||v==="light")r.setAttribute("data-theme",v);else r.removeAttribute("data-theme")}
@@ -269,11 +269,11 @@ async function find(manual){
  }catch(e){
   const L=S.last;
   if(L&&L.pc===pc&&L.d&&L.d.fuel===S.fuel&&L.d.mi===S.mi&&(L.g||here)){render(L.d,L.g||here,L.t);$("findmsg").textContent="Could not get live prices ("+(e&&e.message&&!(e instanceof TypeError)?e.message:"no connection")+"). Showing your saved copy."}
-  else $("findmsg").textContent=(e&&e.message&&!(e instanceof TypeError)?e.message:"No connection.")+(isHere&&e&&e.message&&/location|postcode/i.test(e.message)?"":" Try again in a minute.");
+  else $("findmsg").textContent=(e&&e.message&&!(e instanceof TypeError)?e.message:"No connection.")+(e&&e.message&&/location|postcode not found/i.test(e.message)?(/postcode not found/i.test(e.message)?" Check the postcode and try again.":""):" Try again in a minute.");
   if(manual)toast("Could not get prices",true);
  }finally{busy=false}
 }
-$("find").onclick=()=>{const pc=normPc($("pc").value);if(validPc(pc)){S.pc=pc;S.mode="pc";save()}else if(S.mode==="here"&&!pc){S.mode="pc"}find(true)};
+$("find").onclick=()=>{const pc=normPc($("pc").value);if(!pc&&S.mode!=="here"){$("findmsg").textContent="Type your postcode first, then press the button.";toast("Type a postcode first",true);return}if(validPc(pc)){S.pc=pc;S.mode="pc";save()}else if(S.mode==="here"&&!pc){S.mode="pc"}find(true)};
 $("here").onclick=()=>{S.mode="here";save();find(true)};
 $("pc").addEventListener("keydown",e=>{if(e.key==="Enter")$("find").click()});
 $("fuel").onchange=()=>{S.fuel=$("fuel").value;save();toast("✓ Saved: "+fname(S.fuel));syncAlerts(true);find(false)};
