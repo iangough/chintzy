@@ -24,7 +24,7 @@ h2{font-family:var(--head);font-size:17px;margin:0 0 8px}
 .cols{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
 .col{display:flex;flex-direction:column;gap:14px;min-width:0}
 @media(min-width:880px){.cols{grid-template-columns:minmax(0,1fr) minmax(0,1.25fr)}}
-@media(max-width:879px){.cols{display:flex;flex-direction:column}.col{display:contents}#findcard{order:1}#rescard{order:2}#alertcard{order:3}.o4{order:4}.o5{order:5}}
+@media(max-width:879px){.cols{display:flex;flex-direction:column}.col{display:contents}#findcard{order:1}#rescard{order:2}#alertcard{order:3}#tripcard{order:1}#tripres{order:2}#savedcard{order:3}#setupcard{order:4}.o4{order:8}.o5{order:9}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px}
 .grid .full{grid-column:1/-1}
@@ -64,12 +64,29 @@ a.btn{display:inline-block;text-decoration:none}
 .notice{border-color:var(--warn)}
 details>summary{cursor:pointer;font:600 17px var(--head)}
 ul.rules{margin:6px 0 0;padding-left:20px;color:var(--mute);font-size:13px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap}
+.opt{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:2px 10px;align-items:center;border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:8px;cursor:pointer;background:var(--bg)}
+.opt.sel{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 25%,transparent)}
+.opt input[type=radio]{width:auto;margin:0}
+.opt .nm{font-weight:600;overflow-wrap:anywhere}
+.opt small{color:var(--mute);font-size:12px;display:block}
+.opt .pc{text-align:right;font:700 17px var(--head);white-space:nowrap}
+.tiles3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:8px 0 12px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--bg)}
+.tile small{display:block;color:var(--mute);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tile .v{font:700 24px var(--head);font-variant-numeric:tabular-nums}
+.tile.cost .v{color:var(--good);font-size:32px}
+@media(max-width:420px){.tiles3{grid-template-columns:1fr}}
+.li{display:flex;justify-content:space-between;gap:10px;align-items:center;border-bottom:1px solid var(--line);padding:8px 0}
+.li:last-child{border-bottom:0}
+.li small{display:block;color:var(--mute);font-size:12px}
 </style>
 
 <div class="page">
  <div class="row" style="justify-content:space-between"><h1>Chintzy</h1>
   <label class="chk" for="theme" style="text-transform:none">Theme <select id="theme" style="width:auto"><option value="auto">Auto (system)</option><option value="dark">Dark blue</option><option value="light">Light blue</option></select></label></div>
- <p class="lead">The cheapest petrol near you. Prices are checked every 5 minutes.</p>
+ <p class="lead">The cheapest petrol near you, and what a journey costs. Prices are checked every 5 minutes.</p>
+ <div class="tabs" role="group" aria-label="What do you want to do?"><button class="btn" id="tab_f" type="button">Cheapest petrol</button><button class="btn alt" id="tab_t" type="button">Cost a journey</button></div>
  <div class="netbar" id="netbar" role="status" aria-live="polite"><span class="dot" id="netdot"></span><span id="nettext">Checking connection...</span><button class="btn alt sm" id="netinfo" type="button">What works offline?</button></div>
  <div class="card" id="netdetail" hidden>
   <h2>What works with no connection</h2>
@@ -95,7 +112,7 @@ ul.rules{margin:6px 0 0;padding-left:20px;color:var(--mute);font-size:13px}
 
  <div class="cols">
   <div class="col">
-   <div class="card" id="findcard">
+   <div class="card pf" id="findcard">
     <h2>Find cheap petrol</h2>
     <div class="grid">
      <div class="full"><label for="pc">Postcode</label><input id="pc" autocomplete="postal-code" autocapitalize="characters" placeholder="For example SP11 6ZG"></div>
@@ -107,7 +124,7 @@ ul.rules{margin:6px 0 0;padding-left:20px;color:var(--mute);font-size:13px}
     <p class="note">Away from home? Press <b>Use my location</b> and your phone will ask once to share where you are. Your position is only used for this search: it is not saved, and it is rounded to about 1 km before it is sent. Your postcode, fuel and distance are saved on this phone. Leaded (4-star) petrol is not in the government price data, so it cannot be listed.</p>
    </div>
 
-   <div class="card" id="alertcard">
+   <div class="card pf" id="alertcard">
     <h2>Price-drop alerts</h2>
     <p class="note" style="margin:0 0 8px" id="alertinfo"></p>
     <div class="grid">
@@ -127,10 +144,54 @@ ul.rules{margin:6px 0 0;padding-left:20px;color:var(--mute);font-size:13px}
       <li>The service keeps only the phone's private alert address, the position of your postcode rounded to about 1 km, your fuel and your settings.</li>
      </ul></details>
    </div>
+
+   <div class="card pt" id="tripcard" hidden>
+    <h2>Cost a journey</h2>
+    <div class="grid">
+     <div class="full"><label for="t_name">Journey name (optional)</label><input id="t_name" autocomplete="off" placeholder="For example Ian to Dan"></div>
+     <div class="full"><label for="t_from">From (postcode, nickname or Home)</label>
+      <div class="row" style="flex-wrap:nowrap"><input id="t_from" list="t_places" autocomplete="off" autocapitalize="characters" placeholder="For example Home"><button class="btn alt sm" id="t_here" type="button" style="white-space:nowrap">My location</button></div></div>
+     <div class="full"><label for="t_to">To (postcode or nickname)</label><input id="t_to" list="t_places" autocomplete="off" autocapitalize="characters" placeholder="For example Dan or GU51 3PF"></div>
+     <div class="full"><label class="chk" for="t_ret"><input type="checkbox" id="t_ret"> Return trip (come back the same way)</label></div>
+     <div class="full"><label for="t_car">Car</label><select id="t_car"></select></div>
+     <div class="full"><label for="t_near">Petrol prices from stations near</label><select id="t_near"><option value="start">The start of the journey</option><option value="here">Where I am now</option></select></div>
+    </div>
+    <datalist id="t_places"></datalist>
+    <div class="row" style="margin-top:12px"><button class="btn" id="t_go" type="button">Work out the cost</button><button class="btn alt" id="t_save" type="button">Save this journey</button></div>
+    <p class="msg" id="t_msg" role="status" aria-live="polite"></p>
+    <p class="note">Road miles come from OpenStreetMap routing. Cost = miles divided by the car's real-world miles per gallon, times 4.546 litres, times the price you choose. Your journey stays on this phone; only the position of the start or of where you are, rounded to about 1 km, is sent to find nearby prices.</p>
+   </div>
+   <div class="card pt" id="setupcard" hidden>
+    <h2>My cars</h2>
+    <div id="carlist"></div>
+    <div class="grid" style="margin-top:8px">
+     <div class="full"><label for="c_name">Car name</label><input id="c_name" autocomplete="off" placeholder="For example Golf"></div>
+     <div><label for="c_mpg">Real-world miles per gallon</label><input id="c_mpg" type="number" inputmode="decimal" min="5" max="200" step="0.1" placeholder="For example 42"></div>
+     <div><label for="c_fuel">Fuel</label><select id="c_fuel"></select></div>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn alt" id="c_save" type="button">Save this car</button></div>
+    <p class="note">Not sure of the mpg? Pick one of the typical cars in the Car list. Real-world mpg is usually a little lower than the maker's figure.</p>
+    <h2 style="margin-top:16px">My places</h2>
+    <div id="placelist"></div>
+    <div class="grid" style="margin-top:8px">
+     <div><label for="p_name">Nickname</label><input id="p_name" autocomplete="off" placeholder="For example Dan"></div>
+     <div><label for="p_pc">Postcode</label><input id="p_pc" autocomplete="off" autocapitalize="characters" placeholder="For example GU51 3PF"></div>
+    </div>
+    <div class="row" style="margin-top:10px"><button class="btn alt" id="p_save" type="button">Save this place</button></div>
+    <p class="note">Type a nickname in From or To instead of a postcode. The word Home always means your saved home postcode.</p>
+   </div>
   </div>
 
   <div class="col">
-   <div class="card" id="rescard">
+   <div class="card pt" id="tripres" hidden>
+    <h2 id="tr_head">Journey cost</h2>
+    <div id="tr_body"><p class="note">Fill in the journey on the left and press Work out the cost.</p></div>
+   </div>
+   <div class="card pt" id="savedcard" hidden>
+    <h2>Saved journeys</h2>
+    <div id="trips"></div>
+   </div>
+   <div class="card pf" id="rescard">
     <h2 id="reshead">Cheapest near you</h2>
     <div class="age" id="age" role="status" aria-live="polite"></div>
     <div id="res"><p class="note">Type your postcode and press the button.</p></div>
@@ -155,7 +216,7 @@ const $=id=>document.getElementById(id);
 const KEY="chintzy-v1";
 const SYNC_URL="https://myev.cloudgough.synology.me:8443";
 const APP_URL="https://iangough.github.io/chintzy/";
-const BUILD="2026-11-14b";
+const BUILD="2026-11-14c";
 const FUELS=[["unleaded","Unleaded (E10)"],["super","Super unleaded (E5)"],["diesel","Diesel"],["premium_diesel","Premium diesel"],["hvo","HVO diesel"],["b10","B10 diesel"]];
 const fname=id=>(FUELS.find(f=>f[0]===id)||[0,id])[1];
 function applyTheme(v){const r=document.documentElement;if(v==="dark"||v==="light")r.setAttribute("data-theme",v);else r.removeAttribute("data-theme")}
@@ -171,12 +232,12 @@ function tfetch(u,ms,o){const c=new AbortController();const t=setTimeout(()=>c.a
 const hav=(a,b,c,d)=>{const R=3958.8,t=x=>x*Math.PI/180,dl=t(c-a),dn=t(d-b),h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
 
 /* ---------- saved settings (this device only) ---------- */
-let S={pc:"",fuel:"unleaded",mi:5,mind:1,alerts:false,welcomed:false,nv:0,gc:{},last:null,mode:"pc"};
+let S={pc:"",fuel:"unleaded",mi:5,mind:1,alerts:false,welcomed:false,nv:0,gc:{},last:null,mode:"pc",tab:"f",cars:[],places:{},trips:[],t:{name:"",from:"",to:"",ret:false,car:"",near:"start"}};
 try{const j=JSON.parse(localStorage.getItem(KEY)||"null");if(j&&typeof j==="object")S=Object.assign(S,j)}catch(e){}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 const normPc=p=>{p=String(p||"").toUpperCase().replace(/[^A-Z0-9]/g,"");return p.length>=5?p.slice(0,-3)+" "+p.slice(-3):p};
 const validPc=p=>/^[A-Z]{1,2}\d[A-Z\d]? \d[A-Z]{2}$/.test(normPc(p));
-let cfg={vapid:"",fuels:FUELS.map(f=>({id:f[0],name:f[1],n:1})),notice:"",nver:0,fetched:0,interval:300};
+let cfg={vapid:"",fuels:FUELS.map(f=>({id:f[0],name:f[1],n:1})),notice:"",nver:0,fetched:0,interval:300,cars:[],places:[]};
 try{const c=JSON.parse(localStorage.getItem("chintzy-cfg")||"null");if(c&&c.fuels)cfg=c}catch(e){}
 
 function fillFuels(){
@@ -198,7 +259,7 @@ $("noticeok").onclick=()=>{S.nv=cfg.nver;save();showNotice();toast("✓ Message 
 async function loadCfg(){
  try{const r=await tfetch(SYNC_URL+"/v1/chintzy/config",8000);if(!r.ok)throw 0;const c=await r.json();
   if(c.fuels&&c.fuels.length){cfg=c;try{localStorage.setItem("chintzy-cfg",JSON.stringify(c))}catch(e){}}}catch(e){}
- fillFuels();showNotice();alertUI();
+ fillFuels();showNotice();alertUI();fillTrip();
 }
 
 /* ---------- postcode to position: the centre of the postcode (postcodes.io) ---------- */
@@ -351,6 +412,164 @@ async function syncAlerts(announce){
  }catch(e){}
 }
 
+/* ---------- cost a journey ---------- */
+const GAL=4.54609;                       /* litres in a UK gallon */
+const rcache={};
+async function roadMiles(a,b){
+ const key=[a.lat,a.lon,b.lat,b.lon].map(x=>(+x).toFixed(4)).join(",");if(rcache[key])return rcache[key];
+ const co=`${a.lon},${a.lat};${b.lon},${b.lat}`;
+ const tries=[
+  async()=>{const r=await tfetch(`https://routing.openstreetmap.de/routed-car/route/v1/driving/${co}?overview=false`,9000);const j=await r.json();return j.routes&&j.routes[0]&&j.routes[0].distance/1609.344},
+  async()=>{const r=await tfetch(`https://router.project-osrm.org/route/v1/driving/${co}?overview=false`,9000);const j=await r.json();return j.routes&&j.routes[0]&&j.routes[0].distance/1609.344},
+  async()=>{const q={locations:[{lat:a.lat,lon:a.lon},{lat:b.lat,lon:b.lon}],costing:"auto",units:"miles"};const r=await tfetch("https://valhalla1.openstreetmap.de/route?json="+encodeURIComponent(JSON.stringify(q)),9000);const j=await r.json();return j.trip&&j.trip.summary&&j.trip.summary.length}
+ ];
+ for(const f of tries){try{const v=await f();if(v&&v>0){rcache[key]=v;return v}}catch(e){}}
+ throw new Error("The road routing services could not be reached. Check your connection and try again.");
+}
+const allCars=()=>S.cars.map(c=>Object.assign({own:true},c)).concat((cfg.cars||[]).map(c=>({id:"p:"+c.name,name:c.name,mpg:+c.mpg,fuel:c.fuel})));
+const allPlaces=()=>Object.keys(S.places).map(n=>({n,p:S.places[n],own:true})).concat((cfg.places||[]).filter(p=>!(p.n in S.places)).map(p=>({n:p.n,p:p.p})));
+const carLabel=c=>c.name+" ("+c.mpg+" mpg, "+fname(c.fuel)+")";
+const selCar=()=>{const L=allCars();return L.find(c=>c.id===S.t.car)||L[0]||null};
+const gbp=v=>"£"+v.toFixed(2);
+function fillTrip(){
+ const own=S.cars.map(c=>`<option value="${esc(c.id)}">${esc(carLabel(c))}</option>`).join("");
+ const pre=(cfg.cars||[]).map(c=>`<option value="${esc("p:"+c.name)}">${esc(carLabel(c))}</option>`).join("");
+ $("t_car").innerHTML=(own?`<optgroup label="My cars">${own}</optgroup>`:"")+(pre?`<optgroup label="Typical cars">${pre}</optgroup>`:"")||'<option value="">No cars yet: add one below</option>';
+ const c=selCar();if(c){S.t.car=c.id;$("t_car").value=c.id}
+ $("c_fuel").innerHTML=cfg.fuels.map(f=>`<option value="${esc(f.id)}">${esc(f.name)}</option>`).join("");
+ $("t_name").value=S.t.name||"";$("t_from").value=S.t.from||"";$("t_to").value=S.t.to||"";$("t_ret").checked=!!S.t.ret;$("t_near").value=S.t.near||"start";
+ $("t_places").innerHTML=["Home","My location"].concat(allPlaces().map(p=>p.n)).map(n=>`<option value="${esc(n)}">`).join("");
+ $("carlist").innerHTML=S.cars.length?S.cars.map(c=>`<div class="li"><div>${esc(c.name)}<small>${esc(c.mpg+" mpg, "+fname(c.fuel))}</small></div><button class="btn warn sm" data-delcar="${esc(c.id)}" type="button">Delete</button></div>`).join(""):"<p class='note'>No cars of your own yet. The typical cars in the Car list can be used as they are.</p>";
+ const pl=allPlaces();
+ $("placelist").innerHTML=pl.length?pl.map(p=>`<div class="li"><div>${esc(p.n)}<small>${esc(p.p)}${p.own?"":" (suggested)"}</small></div>${p.own?`<button class="btn warn sm" data-delplace="${esc(p.n)}" type="button">Delete</button>`:""}</div>`).join(""):"<p class='note'>No places yet.</p>";
+ $("trips").innerHTML=S.trips.length?S.trips.map(t=>`<div class="li"><div><b>${esc(t.name)}</b><small>${esc(t.from)} to ${esc(t.to)}${t.ret?", return":""}</small></div><div class="row"><button class="btn alt sm" data-opentrip="${esc(t.id)}" type="button">Open</button><button class="btn warn sm" data-deltrip="${esc(t.id)}" type="button">Delete</button></div></div>`).join(""):"<p class='note'>No saved journeys yet. Work one out, then press Save this journey.</p>";
+}
+function keepT(){S.t={name:$("t_name").value,from:$("t_from").value,to:$("t_to").value,ret:$("t_ret").checked,car:$("t_car").value,near:$("t_near").value};save()}
+["t_name","t_from","t_to"].forEach(id=>$(id).addEventListener("input",keepT));
+$("t_ret").onchange=()=>{keepT();toast($("t_ret").checked?"✓ Return trip on":"✓ Return trip off");if(TR)tripGo(false)};
+$("t_car").onchange=()=>{keepT();const c=selCar();toast("✓ Car: "+(c?c.name:""));if(TR)tripGo(false)};
+$("t_near").onchange=()=>{keepT();toast("✓ Prices near: "+($("t_near").value==="here"?"where I am now":"the start"));if(TR)tripGo(false)};
+$("t_here").onclick=()=>{$("t_from").value="My location";keepT();toast("✓ Start set to your location")};
+
+async function resolvePoint(txt){
+ const t=String(txt||"").trim(),k=t.toLowerCase();
+ if(!t)throw new Error("Type a postcode or nickname in both From and To.");
+ if(/^(my location|here|current location|gps)$/.test(k)){return{g:await locate(false),label:"My location",here:true}}
+ let pc,label=t;
+ const pl=allPlaces().find(p=>p.n.toLowerCase()===k);
+ if(pl){pc=pl.p;label=pl.n}
+ else if(k==="home"){if(!validPc(S.pc))throw new Error("Save your home postcode first (on the Cheapest petrol tab).");pc=S.pc;label="Home"}
+ else if(validPc(t)){pc=normPc(t);label=pc}
+ else throw new Error("“"+t+"” is not a postcode or one of your nicknames.");
+ return{g:await geocode(pc),label,pc};
+}
+/* the three cheapest stations near a point, widening the search (5, 10, then 25 miles) until there are three */
+async function nearThree(c,fuel){
+ let st=[];
+ for(const mi of [5,10,25]){
+  const r=await tfetch(SYNC_URL+"/v1/chintzy/near?fuel="+fuel+"&mi="+mi+"&lat="+c.lat.toFixed(2)+"&lon="+c.lon.toFixed(2),20000);
+  if(r.status===503)throw new Error("The prices are still loading on the server.");
+  if(!r.ok)throw new Error("service "+r.status);
+  st=(await r.json()).stations;if(st.length>=3)break;
+ }
+ return st.slice(0,3).map(x=>({name:x.name,postcode:x.postcode,ppl:x.ppl,miles:hav(c.lat,c.lon,x.lat,x.lon),lat:x.lat,lon:x.lon}));
+}
+let TR=null,tbusy=false;
+async function tripGo(manual){
+ if(tbusy)return;
+ keepT();
+ const car=selCar(),m=$("t_msg");
+ if(!car){m.textContent="Pick a car, or add your own below.";if(manual)toast("Pick a car first",true);return}
+ tbusy=true;m.textContent="Finding the road distance...";
+ try{
+  const a=await resolvePoint($("t_from").value),b=await resolvePoint($("t_to").value);
+  const one=await roadMiles(a.g,b.g);
+  m.textContent="Finding the cheapest petrol...";
+  let opts=[],note="",cen=a.g,nearLabel=a.label==="My location"?"your location":"the start ("+a.label+")";
+  try{if($("t_near").value==="here"){cen=await locate(false);nearLabel="where you are now"}opts=await nearThree(cen,car.fuel);if(!opts.length)note="No stations with a "+fname(car.fuel)+" price within 25 miles of "+nearLabel+". Type your own price below."}
+  catch(e){note="Could not get live prices ("+(e&&e.message?e.message:"no connection")+"). Type your own price below."}
+  const keep=TR&&TR.key===a.label+"|"+b.label&&TR.own;
+  TR={key:a.label+"|"+b.label,from:a.label,to:b.label,ret:$("t_ret").checked,car,one,opts,note,nearLabel,sel:opts.length?0:-1,own:keep||""};
+  if(!opts.length)TR.sel=-1;
+  renderTrip();m.textContent="";
+  if(manual){toast("✓ Cost worked out");try{document.activeElement.blur()}catch(e){}$("tripres").scrollIntoView({behavior:"smooth",block:"start"})}
+ }catch(e){m.textContent=e&&e.message?e.message:"No connection.";if(manual)toast("Could not work out the cost",true)}
+ finally{tbusy=false}
+}
+const tripMiles=()=>TR.one*(TR.ret?2:1);
+const tripCost=p=>tripMiles()/TR.car.mpg*GAL*p/100;
+function renderTrip(){
+ if(!TR)return;
+ const mi=tripMiles(),litres=mi/TR.car.mpg*GAL;
+ $("tr_head").textContent=(($("t_name").value||"").trim()||TR.from+" to "+TR.to);
+ const price=TR.sel>=0?TR.opts[TR.sel].ppl:(parseFloat(TR.own)||0);
+ const cost=price?tripCost(price):0;
+ let h=`<div class="tiles3"><div class="tile cost"><small>Fuel cost</small><div class="v" id="tr_cost">${price?gbp(cost):"Choose a price"}</div></div><div class="tile"><small>Road miles${TR.ret?" (there and back)":""}</small><div class="v">${mi.toFixed(1)}</div></div><div class="tile"><small>Litres of ${esc(fname(TR.car.fuel))}</small><div class="v">${litres.toFixed(1)}</div></div></div>`;
+ h+=`<p class="note" style="margin:0 0 8px">${esc(TR.car.name)} at ${TR.car.mpg} mpg. ${TR.ret?"One way is "+TR.one.toFixed(1)+" miles. ":""}Choose the petrol price to use:</p>`;
+ h+=TR.opts.map((o,i)=>`<label class="opt${TR.sel===i?" sel":""}"><input type="radio" name="tp" value="${i}"${TR.sel===i?" checked":""}><div><span class="nm">${esc(o.name)}</span>${i===0?'<span class="tag">Cheapest</span>':""}<small>${esc(o.postcode||"")} · ${o.miles.toFixed(1)} mi from ${esc(TR.nearLabel)}</small></div><div class="pc">${o.ppl.toFixed(1)}p<small>${gbp(tripCost(o.ppl))}</small></div></label>`).join("");
+ h+=`<label class="opt${TR.sel===-1?" sel":""}"><input type="radio" name="tp" value="own"${TR.sel===-1?" checked":""}><div><span class="nm">My own price</span><small>Pence per litre</small></div><div><input id="tr_own" type="number" inputmode="decimal" step="0.1" min="50" max="400" placeholder="e.g. 145.9" value="${esc(TR.own)}" style="width:110px"></div></label>`;
+ if(TR.note)h+=`<p class="note">${esc(TR.note)}</p>`;
+ if(TR.opts.length>1){const lo=TR.opts[0].ppl,hi=TR.opts[TR.opts.length-1].ppl;if(hi-lo>=0.5)h+=`<p class="note">The cheapest of these saves ${gbp(tripCost(hi)-tripCost(lo))} against the dearest of the three.</p>`}
+ h+=`<p class="note">Prices are from the government Fuel Finder data${TR.ret?"; the return trip assumes the same road back":""}. The cost is for fuel only.</p>`;
+ $("tr_body").innerHTML=h;
+}
+$("tr_body").addEventListener("change",e=>{
+ if(!TR||e.target.name!=="tp")return;
+ TR.sel=e.target.value==="own"?-1:+e.target.value;renderTrip();
+ toast("✓ Price chosen: "+(TR.sel>=0?TR.opts[TR.sel].name+" "+TR.opts[TR.sel].ppl.toFixed(1)+"p":"your own price"));
+});
+$("tr_body").addEventListener("input",e=>{
+ if(!TR||e.target.id!=="tr_own")return;
+ TR.own=e.target.value;TR.sel=-1;
+ const p=parseFloat(TR.own)||0;$("tr_cost").textContent=p?gbp(tripCost(p)):"Choose a price";
+ document.querySelectorAll("#tr_body .opt").forEach((el,i,L)=>el.classList.toggle("sel",i===L.length-1));
+ const r=document.querySelector('#tr_body input[value="own"]');if(r)r.checked=true;
+});
+$("t_go").onclick=()=>tripGo(true);
+$("t_save").onclick=()=>{
+ keepT();const from=$("t_from").value.trim(),to=$("t_to").value.trim(),car=selCar();
+ if(!from||!to){$("t_msg").textContent="Fill in From and To first.";toast("Fill in From and To first",true);return}
+ const name=$("t_name").value.trim()||(from+" to "+to);
+ S.trips=S.trips.filter(t=>t.name.toLowerCase()!==name.toLowerCase());
+ S.trips.unshift({id:"j"+Date.now().toString(36),name,from,to,ret:$("t_ret").checked,car:car?car.id:"",near:$("t_near").value});
+ S.trips=S.trips.slice(0,30);$("t_name").value=name;S.t.name=name;save();fillTrip();
+ $("t_msg").textContent="";toast("✓ Journey saved: "+name);try{document.activeElement.blur()}catch(e){}
+};
+let armed="";
+document.addEventListener("click",e=>{
+ const b=e.target.closest("button");if(!b)return;
+ const d=b.dataset;
+ if(d.opentrip){const t=S.trips.find(x=>x.id===d.opentrip);if(!t)return;
+  S.t={name:t.name,from:t.from,to:t.to,ret:!!t.ret,car:allCars().some(c=>c.id===t.car)?t.car:S.t.car,near:t.near||"start"};save();fillTrip();toast("✓ Opened: "+t.name);tripGo(true)}
+ const del=(attr,label,fn)=>{if(armed!==attr+d[attr]){armed=attr+d[attr];const o=b.textContent;b.textContent="Tap again to delete";setTimeout(()=>{if(armed===attr+d[attr]){armed="";b.textContent=o}},3500);return}armed="";fn();fillTrip();toast("✓ Deleted: "+label)};
+ if(d.deltrip){const t=S.trips.find(x=>x.id===d.deltrip);del("deltrip",t?t.name:"journey",()=>{S.trips=S.trips.filter(x=>x.id!==d.deltrip);save()})}
+ if(d.delcar){const c=S.cars.find(x=>x.id===d.delcar);del("delcar",c?c.name:"car",()=>{S.cars=S.cars.filter(x=>x.id!==d.delcar);if(S.t.car===d.delcar)S.t.car="";save()})}
+ if(d.delplace)del("delplace",d.delplace,()=>{delete S.places[d.delplace];save()});
+});
+$("c_save").onclick=()=>{
+ const name=$("c_name").value.trim().slice(0,30),mpg=parseFloat($("c_mpg").value),fuel=$("c_fuel").value;
+ if(!name||!(mpg>=5&&mpg<=200)){toast("Give the car a name and its miles per gallon (5 to 200)",true);return}
+ const c={id:"u"+Date.now().toString(36),name,mpg:Math.round(mpg*10)/10,fuel};
+ S.cars=S.cars.filter(x=>x.name.toLowerCase()!==name.toLowerCase());S.cars.unshift(c);S.cars=S.cars.slice(0,12);S.t.car=c.id;save();fillTrip();
+ $("c_name").value="";$("c_mpg").value="";toast("✓ Car saved: "+name);try{document.activeElement.blur()}catch(e){}
+};
+$("p_save").onclick=()=>{
+ const n=$("p_name").value.trim().slice(0,20),pc=normPc($("p_pc").value);
+ if(!n||/^(home|my location|here)$/i.test(n)){toast("Choose a nickname (not Home or My location)",true);return}
+ if(!validPc(pc)){toast("That postcode does not look right",true);return}
+ Object.keys(S.places).forEach(k=>{if(k.toLowerCase()===n.toLowerCase())delete S.places[k]});
+ S.places[n]=pc;save();fillTrip();$("p_name").value="";$("p_pc").value="";toast("✓ Place saved: "+n+" = "+pc);try{document.activeElement.blur()}catch(e){}
+};
+function setTab(t){
+ S.tab=t==="t"?"t":"f";save();
+ document.querySelectorAll(".pf").forEach(e=>e.hidden=S.tab==="t");
+ document.querySelectorAll(".pt").forEach(e=>e.hidden=S.tab!=="t");
+ $("tab_f").className="btn"+(S.tab==="f"?"":" alt");$("tab_t").className="btn"+(S.tab==="t"?"":" alt");
+ $("tab_f").setAttribute("aria-pressed",S.tab==="f");$("tab_t").setAttribute("aria-pressed",S.tab==="t");
+}
+$("tab_f").onclick=()=>{setTab("f");toast("✓ Cheapest petrol")};
+$("tab_t").onclick=()=>{setTab("t");toast("✓ Cost a journey")};
+
 /* ---------- share the app ---------- */
 const APP_TEXT="Chintzy: find the cheapest petrol near you, with directions and price-drop alerts.\nOpen it here: "+APP_URL+"\niPhone: open it in Safari, tap Share, then Add to Home Screen.\nAndroid: open it in Chrome, tap the three dots, then Install app.";
 $("app_wa").href="https://wa.me/?text="+encodeURIComponent(APP_TEXT);
@@ -378,7 +597,7 @@ setTimeout(checkUpdate,3000);setInterval(checkUpdate,600000);document.addEventLi
 function regSW(){if("serviceWorker" in navigator&&/(github\.io|localhost|127\.0\.0\.1)$/.test(location.hostname)){navigator.serviceWorker.register("sw.js").catch(()=>{})}}
 
 /* ---------- start ---------- */
-fillFuels();showPrefs();showWelcome();alertUI();regSW();
+fillFuels();showPrefs();showWelcome();alertUI();regSW();fillTrip();setTab(S.tab);
 if(S.last&&S.last.d&&S.last.g&&S.last.pc===(S.mode==="here"?"here":S.pc)&&S.last.d.fuel===S.fuel&&S.mode!=="here"){render(S.last.d,S.last.g,S.last.t)}
 loadCfg().then(()=>{showPrefs();alertUI();if(S.mode==="here"&&!S.pc)S.mode="pc";if(S.mode==="here"){const ask=()=>{$("findmsg").textContent="Press Use my location to look near you again."};try{navigator.permissions.query({name:"geolocation"}).then(r=>{if(r.state==="granted")find(false);else ask()},ask)}catch(e){ask()}}else if(S.pc)find(false);syncAlerts(false)});
 })();
